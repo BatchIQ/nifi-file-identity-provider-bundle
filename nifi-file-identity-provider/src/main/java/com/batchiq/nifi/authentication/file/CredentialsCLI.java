@@ -16,9 +16,12 @@
 
 package com.batchiq.nifi.authentication.file;
 
+import java.io.BufferedReader;
 import java.io.Console;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.InvalidObjectException;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
@@ -142,10 +145,24 @@ public class CredentialsCLI {
                 return;
             }
             Console console = System.console();
-            if (console == null) {
-                throw new InvalidObjectException("Console is not available for reading password");
+            if (console != null) {
+                secureInput = console.readPassword(securePrompt);
+            } else {
+                try {
+                    if (System.in.available() > 0) {
+                        try (InputStreamReader reader = new InputStreamReader(System.in);
+                             BufferedReader bufferedReader = new BufferedReader(reader)) {
+                            String pipeInput = bufferedReader.readLine();
+                            if (pipeInput != null && pipeInput.length() > 0) {
+                                secureInput = pipeInput.toCharArray();
+                                System.err.println("Password read from pipe");
+                            }
+                        }
+                    }
+                } catch (IOException ex) {
+                    throw new InvalidObjectException("Failed to read input from pipe");
+                }
             }
-            secureInput = console.readPassword(securePrompt);
         }
 
         String getSecureInputAsString() {
